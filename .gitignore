@@ -1,0 +1,13 @@
+# Secrets / local config
+.env
+.env.*
+.claude/
+
+# Build artifacts
+/bin/
+*.exe
+*.test
+*.out
+
+# OS / editor
+.DS_Store
