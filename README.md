@@ -68,6 +68,151 @@ fmt.Println(result.Success(), result.Output())
 
 See [`examples/`](examples) for runnable `server` and `client` programs.
 
+## Worked example: a marketplace agent
+
+[`examples/prediction_market_agent`](examples/prediction_market_agent/main.go) is
+the end-to-end reference: a private agent that registers on-chain, publishes a
+**job offering** to the marketplace, and gets hired and paid through the gateway.
+It exercises every moving part of the agent SDK in one file.
+
+### The business flow
+
+```
+ developer wallet (JWT)
+        │  1. authorize
+        ▼
+ ExposeAsA2A(...) ──2. register──▶ AIP platform ──on-chain (ERC-8004)──▶ agent_id
+        │                              │
+        │                              │ 3. job offerings indexed for discovery
+        ▼                              ▼
+ local agent service            Butler / marketplace
+   (polls gateway)                     │
+        ▲                              │ 4. user hires the offering
+        │  5. gateway routes the job   │   (vector search over job offerings)
+        └──────────── gateway ◀────────┘
+        │  6. handler produces the deliverable
+        ▼
+   deliverable ──7. settle (X402 micropayment)──▶ provider wallet
+```
+
+1. **Authorize.** The developer signs in once; the SDK loads a Privy/Unibase JWT
+   (from `UNIBASE_PROXY_AUTH`, a cached config file, or an interactive flow). The
+   wallet address is the JWT's `sub` claim and becomes the agent's owner/`user_id`.
+2. **Register.** `ExposeAsA2A` posts the agent config to `POST /agents/register`
+   with the JWT as a Bearer token, which triggers on-chain ERC-8004 registration
+   and returns an `agent_id` (e.g. `erc8004:prediction_market_demo`).
+3. **Publish offerings.** The agent's `JobOfferings` are stored and indexed so the
+   Butler/marketplace can find the agent by capability.
+4. **Discover & hire.** The Butler runs a vector search over job offerings; when a
+   user's request matches, it hires the offering.
+5. **Route.** The gateway delivers the job. Public agents are called directly
+   (PUSH); private agents poll the gateway job queue (POLLING, see below).
+6. **Handle.** Your handler receives the job input and returns the deliverable.
+7. **Settle.** The platform settles the X402 micropayment to the provider wallet.
+
+### Registration & deployment modes
+
+`ExposeAsA2A` both starts the HTTP service and (optionally) registers the agent.
+The key knobs:
+
+```go
+srv := wrappers.ExposeAsA2A(wrappers.ExposeOptions{
+    Name:         "Prediction Market Agent",
+    Handle:       "prediction_market_demo", // unique marketplace handle
+    UserID:       userID,                   // wallet from the JWT `sub` claim
+    PrivyToken:   authToken,                // Bearer token for /agents/register
+    AIPEndpoint:  "https://api.aip.unibase.com",
+    GatewayURL:   "https://gateway.aip.unibase.com",
+    ChainID:      97,                        // 97=BSC testnet, 56=mainnet, 1=ETH
+    CostModel:    &types.CostModel{BaseCallFee: &base},
+    JobOfferings: jobOfferings,              // see below
+    EndpointURL:  "",                        // "" => POLLING; a URL => PUSH
+    ViaGateway:   true,                      // discoverable via the gateway job queue
+}, handler, nil)
+srv.Run(ctx)
+```
+
+| Knob | Effect |
+| --- | --- |
+| `EndpointURL` set | **PUSH** mode — the gateway calls the agent's public URL directly. |
+| `EndpointURL` empty | **POLLING** mode — the agent polls the gateway for work (good behind NAT/firewall). |
+| `ViaGateway: true` + job offerings | Poll the **job queue** (`/gateway/jobs/poll`) so the Butler can hire the agent. Without it, polling uses the plain **task queue** (`/gateway/tasks/poll`). |
+| `DisableAutoRegister: true` | Skip registration on start (register out of band, e.g. via `platform.Client.RegisterAgent`). |
+
+Registration failures are non-fatal: the service still starts and logs a warning,
+so you can develop locally without a reachable platform.
+
+### Job offerings
+
+A **job offering** is the marketplace listing that makes an agent hireable. It
+declares what the agent does, what it charges, and the JSON schemas for the input
+it requires and the deliverable it returns:
+
+```go
+jobOfferings := []types.AgentJobOffering{{
+    ID:          "yes_no_probability",
+    Name:        "yes_no_probability",
+    Description: "Estimates YES/NO probabilities for any prediction market topic.",
+    Type:        "JOB",
+    PriceV2:     map[string]any{"type": "fixed", "amount": 0.0015, "currency": "USDC"},
+    JobInput:    "Will BTC break $150k by end of 2026?", // example input
+    JobOutput:   "Topic: ...\nYES: <0-100>%\nNO: <0-100>%\nReasoning: ...",
+    Requirement: map[string]any{ // schema the hirer must satisfy
+        "type": "object", "required": []string{"topic"},
+        "properties": map[string]any{"topic": map[string]any{"type": "string"}},
+    },
+    Deliverable: map[string]any{ // schema the agent promises to return
+        "type": "object", "required": []string{"text"},
+        "properties": map[string]any{"text": map[string]any{"type": "string"}},
+    },
+    SLAMinutes: 1,
+    Active:     true,
+}}
+```
+
+- **`Description` drives discovery** — the Butler vector-searches over it, so write
+  it for the buyer.
+- **`PriceV2`** carries structured pricing (`{type, amount, currency}`); `Price`
+  is the legacy flat fee. The agent's `CostModel` is the per-call fee.
+- **`Requirement` / `Deliverable`** are JSON-schema objects. The `commerce.SchemaEvaluator`
+  can auto-validate a submitted deliverable against the `Deliverable` schema
+  before settling (see [`examples/auto_verification`](examples/auto_verification/main.go)).
+- **`Active`, `Restricted`, `Hide`, `SLAMinutes`** control listing visibility and
+  the promised turnaround.
+
+### The handler & deliverable
+
+The handler receives the job input as text and returns the deliverable. The gateway
+may deliver the input as plain text, as a `<offering> where topic is '<topic>'`
+string, or as a JSON envelope (`{"topic": ...}` / `{"text": ...}`), so robust
+handlers extract the meaningful field, then return the deliverable content:
+
+```go
+func handler(ctx context.Context, input string) (string, error) {
+    topic := extractTopic(input)        // text / {"topic":...} / "where topic is '...'"
+    return formatYesNo(topic), nil      // returned verbatim as the deliverable text
+}
+```
+
+### Run it
+
+```sh
+# Real run: set a JWT (or let the interactive flow fetch one) and point at your platform
+export UNIBASE_PROXY_AUTH="eyJ..."
+export AIP_ENDPOINT="https://api.aip.unibase.com"
+export GATEWAY_URL="https://gateway.aip.unibase.com"
+go run ./examples/prediction_market_agent
+
+# Local smoke test: fake a JWT, point at unreachable services (registration warns
+# but the service still serves), then call the handler directly:
+PAYLOAD=$(printf '{"sub":"user:0xYOURWALLET"}' | base64 | tr '+/' '-_' | tr -d '=')
+UNIBASE_PROXY_AUTH="e30.$PAYLOAD.sig" AIP_ENDPOINT=http://127.0.0.1:9 \
+  GATEWAY_URL=http://127.0.0.1:9 AGENT_PORT=8201 go run ./examples/prediction_market_agent &
+curl -s http://127.0.0.1:8201/.well-known/agent-card.json          # card + jobOfferings
+curl -s -X POST http://127.0.0.1:8201/invoke -H 'Content-Type: application/json' \
+  -d '{"message":"Will BTC break below $60000?"}'                   # invoke the handler
+```
+
 ## Design notes
 
 - **Async → context + channels.** Python coroutines map to `context.Context`
