@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/aiperr"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/aiperr"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // DefaultBaseURL returns the base URL from AIP_ENDPOINT, or the local default.

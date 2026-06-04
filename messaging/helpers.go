@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/a2a"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/a2a"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // AgentMessageFromA2A parses an A2A Message into a types.AgentMessage.

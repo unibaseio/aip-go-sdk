@@ -3,7 +3,7 @@ package commerce
 import (
 	"context"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/internal/log"
+	"github.com/unibaseio/aip-go-sdk/internal/log"
 )
 
 var evalLogger = log.Get("commerce.evaluator")

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/server"
-	"github.com/unibaseio/unibase-aip-sdk-go/wrappers"
+	"github.com/unibaseio/aip-go-sdk/server"
+	"github.com/unibaseio/aip-go-sdk/wrappers"
 )
 
 func main() {

@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/commerce"
-	"github.com/unibaseio/unibase-aip-sdk-go/internal/log"
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/commerce"
+	"github.com/unibaseio/aip-go-sdk/internal/log"
+	"github.com/unibaseio/aip-go-sdk/platform"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 var logger = log.Get("examples.auto_submit_agent")

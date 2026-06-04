@@ -3,8 +3,8 @@ package a2a
 import (
 	"strings"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/core"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/core"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // GenerateCardOptions customize agent card generation. Zero values fall back to

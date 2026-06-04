@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/platform"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // registerWithAIP registers the agent with the AIP platform using the

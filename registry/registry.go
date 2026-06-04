@@ -15,13 +15,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/a2a"
-	"github.com/unibaseio/unibase-aip-sdk-go/aiperr"
-	"github.com/unibaseio/unibase-aip-sdk-go/core"
-	"github.com/unibaseio/unibase-aip-sdk-go/gateway"
-	"github.com/unibaseio/unibase-aip-sdk-go/internal/log"
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/a2a"
+	"github.com/unibaseio/aip-go-sdk/aiperr"
+	"github.com/unibaseio/aip-go-sdk/core"
+	"github.com/unibaseio/aip-go-sdk/gateway"
+	"github.com/unibaseio/aip-go-sdk/internal/log"
+	"github.com/unibaseio/aip-go-sdk/platform"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 var logger = log.Get("registry.registry")

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/a2a"
+	"github.com/unibaseio/aip-go-sdk/a2a"
 )
 
 // TextHandler maps input text to a response string.

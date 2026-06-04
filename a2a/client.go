@@ -13,7 +13,7 @@ import (
 	a2ago "github.com/a2aproject/a2a-go/a2a"
 	"github.com/a2aproject/a2a-go/a2aclient"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // TaskExecutionError indicates a failure executing or fetching a task.

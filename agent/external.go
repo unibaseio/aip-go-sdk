@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/internal/log"
+	"github.com/unibaseio/aip-go-sdk/internal/log"
 )
 
 var extLogger = log.Get("agent.external")

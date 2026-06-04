@@ -1,4 +1,4 @@
-module github.com/unibaseio/unibase-aip-sdk-go
+module github.com/unibaseio/aip-go-sdk
 
 go 1.25.0
 

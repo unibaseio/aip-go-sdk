@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/commerce"
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
+	"github.com/unibaseio/aip-go-sdk/commerce"
+	"github.com/unibaseio/aip-go-sdk/platform"
 )
 
 func getenv(key, def string) string {

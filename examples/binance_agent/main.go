@@ -25,10 +25,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/examples/internal/exauth"
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
-	"github.com/unibaseio/unibase-aip-sdk-go/wrappers"
+	"github.com/unibaseio/aip-go-sdk/examples/internal/exauth"
+	"github.com/unibaseio/aip-go-sdk/platform"
+	"github.com/unibaseio/aip-go-sdk/types"
+	"github.com/unibaseio/aip-go-sdk/wrappers"
 )
 
 func getenv(key, def string) string {

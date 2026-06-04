@@ -30,8 +30,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
-	"github.com/unibaseio/unibase-aip-sdk-go/wrappers"
+	"github.com/unibaseio/aip-go-sdk/types"
+	"github.com/unibaseio/aip-go-sdk/wrappers"
 )
 
 func getenv(key, def string) string {

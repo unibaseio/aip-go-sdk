@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/server"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
-	"github.com/unibaseio/unibase-aip-sdk-go/wrappers"
+	"github.com/unibaseio/aip-go-sdk/server"
+	"github.com/unibaseio/aip-go-sdk/types"
+	"github.com/unibaseio/aip-go-sdk/wrappers"
 )
 
 // streamingHandler emits the response one word at a time over a channel,

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/server"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/server"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // ExposeOptions configure ExposeAsA2A. Only Name is required.

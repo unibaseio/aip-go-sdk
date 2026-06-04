@@ -9,7 +9,7 @@ platform, poll a gateway for work).
 ## Install
 
 ```sh
-go get github.com/unibaseio/unibase-aip-sdk-go
+go get github.com/unibaseio/aip-go-sdk
 ```
 
 Requires Go 1.25+.

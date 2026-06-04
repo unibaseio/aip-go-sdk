@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
+	"github.com/unibaseio/aip-go-sdk/platform"
 )
 
 func getenv(key, def string) string {

@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/a2a"
-	"github.com/unibaseio/unibase-aip-sdk-go/agent"
-	"github.com/unibaseio/unibase-aip-sdk-go/types"
+	"github.com/unibaseio/aip-go-sdk/a2a"
+	"github.com/unibaseio/aip-go-sdk/agent"
+	"github.com/unibaseio/aip-go-sdk/types"
 )
 
 // GatewayError is a gateway communication error.

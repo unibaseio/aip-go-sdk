@@ -5,7 +5,7 @@ package commerce
 import (
 	"context"
 
-	"github.com/unibaseio/unibase-aip-sdk-go/platform"
+	"github.com/unibaseio/aip-go-sdk/platform"
 )
 
 // JobClient is a specialized client for Agentic Commerce, wrapping a platform Client.
