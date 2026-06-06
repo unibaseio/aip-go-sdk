@@ -148,21 +148,27 @@ func (s *Server) Run(ctx context.Context) error {
 	logger.Infof("A2A Server starting at http://%s", addr)
 	logger.Infof("Agent Card: http://%s/.well-known/agent-card.json", addr)
 
-	if s.registrationConfig != nil && s.autoRegister {
-		s.registerWithAIP(ctx)
-	}
-	if cfg := s.registrationConfig; cfg != nil && cfg.EndpointURL == "" && cfg.GatewayURL != "" {
-		pollCtx, cancel := context.WithCancel(ctx)
-		s.pollCancel = cancel
-		go s.gatewayPollingLoop(pollCtx)
-	}
+	pollCtx, pollCancel := context.WithCancel(ctx)
+	s.pollCancel = pollCancel
+
+	// Register with the platform and start gateway polling in the background, so
+	// a slow or unreachable platform (registration now retries) never blocks the
+	// HTTP listener from coming up. The agent serves locally regardless.
+	go func() {
+		if s.registrationConfig != nil && s.autoRegister {
+			s.registerWithAIP(ctx)
+		}
+		if cfg := s.registrationConfig; cfg != nil && cfg.EndpointURL == "" && cfg.GatewayURL != "" {
+			s.gatewayPollingLoop(pollCtx)
+		} else {
+			pollCancel()
+		}
+	}()
 
 	httpServer := &http.Server{Addr: addr, Handler: s.Handler()}
 	go func() {
 		<-ctx.Done()
-		if s.pollCancel != nil {
-			s.pollCancel()
-		}
+		pollCancel()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)

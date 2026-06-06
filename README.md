@@ -196,18 +196,37 @@ func handler(ctx context.Context, input string) (string, error) {
 
 ### Run it
 
+**1. Build & test**
+
 ```sh
-# Real run: set a JWT (or let the interactive flow fetch one) and point at your platform
+go build ./...   # compile everything
+go test ./...    # unit + e2e tests (a2a / server / types / contracts)
+```
+
+**2. Run the agent** — pick one of:
+
+```sh
+# 2a. Real run: set a JWT (or let the interactive flow fetch one) and point at your platform
 export UNIBASE_PROXY_AUTH="eyJ..."
 export AIP_ENDPOINT="https://api.aip.unibase.com"
 export GATEWAY_URL="https://gateway.aip.unibase.com"
 go run ./examples/prediction_market_agent
+```
 
-# Local smoke test: fake a JWT, point at unreachable services (registration warns
-# but the service still serves), then call the handler directly:
+```sh
+# 2b. Local smoke test: fake a JWT and point at unreachable services. Registration
+#     just logs a warning and the agent still serves on :8201 — no platform needed.
 PAYLOAD=$(printf '{"sub":"user:0xYOURWALLET"}' | base64 | tr '+/' '-_' | tr -d '=')
 UNIBASE_PROXY_AUTH="e30.$PAYLOAD.sig" AIP_ENDPOINT=http://127.0.0.1:9 \
-  GATEWAY_URL=http://127.0.0.1:9 AGENT_PORT=8201 go run ./examples/prediction_market_agent &
+  GATEWAY_URL=http://127.0.0.1:9 AGENT_PORT=8201 go run ./examples/prediction_market_agent
+```
+
+> Plain `go run ./examples/prediction_market_agent` with no `UNIBASE_PROXY_AUTH`
+> set will start the interactive authorization flow and wait for a pasted token.
+
+**3. Call it** (from another terminal; default port is 8201)
+
+```sh
 curl -s http://127.0.0.1:8201/.well-known/agent-card.json          # card + jobOfferings
 curl -s -X POST http://127.0.0.1:8201/invoke -H 'Content-Type: application/json' \
   -d '{"message":"Will BTC break below $60000?"}'                   # invoke the handler
