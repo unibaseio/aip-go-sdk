@@ -19,14 +19,14 @@ const (
 
 // TaskSpec specifies a task to be executed.
 type TaskSpec struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Description string       `json:"description"`
-	Payload   map[string]any `json:"payload,omitempty"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	RunID     string         `json:"run_id,omitempty"`
-	ParentID  string         `json:"parent_id,omitempty"`
-	CreatedAt float64        `json:"created_at"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Payload     map[string]any `json:"payload,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	RunID       string         `json:"run_id,omitempty"`
+	ParentID    string         `json:"parent_id,omitempty"`
+	CreatedAt   float64        `json:"created_at"`
 }
 
 // NewTaskSpec creates a TaskSpec with sensible defaults for ID and CreatedAt.

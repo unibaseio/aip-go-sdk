@@ -56,11 +56,31 @@ type Server struct {
 	registrationConfig *RegistrationConfig
 	autoRegister       bool
 
-	mu      sync.Mutex
-	tasks   map[string]*a2a.Task
-	agentID string
+	mu        sync.Mutex
+	tasks     map[string]*a2a.Task
+	taskOrder []string // insertion order, for FIFO eviction
+	maxTasks  int
+	agentID   string
 
 	pollCancel context.CancelFunc
+}
+
+// defaultMaxTasks bounds the in-memory task table to avoid unbounded growth on
+// a long-running server. Oldest tasks are evicted first.
+const defaultMaxTasks = 1000
+
+// putTaskLocked stores a task and evicts the oldest entries once the table
+// exceeds maxTasks. The caller must hold s.mu.
+func (s *Server) putTaskLocked(id string, task *a2a.Task) {
+	if _, exists := s.tasks[id]; !exists {
+		s.taskOrder = append(s.taskOrder, id)
+	}
+	s.tasks[id] = task
+	for len(s.taskOrder) > s.maxTasks {
+		oldest := s.taskOrder[0]
+		s.taskOrder = s.taskOrder[1:]
+		delete(s.tasks, oldest)
+	}
 }
 
 // Option customizes a Server.
@@ -90,6 +110,7 @@ func New(card types.AgentCard, handler TaskHandler, host string, port int, opts 
 		port:         port,
 		autoRegister: true,
 		tasks:        map[string]*a2a.Task{},
+		maxTasks:     defaultMaxTasks,
 	}
 	for _, o := range opts {
 		o(s)
@@ -354,7 +375,7 @@ func (s *Server) getOrCreateTask(taskID, contextID string, message *a2a.Message)
 		Status:    a2a.TaskStatus{State: a2a.TaskStateSubmitted},
 		History:   []*a2a.Message{message},
 	}
-	s.tasks[taskID] = task
+	s.putTaskLocked(taskID, task)
 	return task
 }
 
@@ -377,7 +398,7 @@ func (s *Server) handleMessageSend(ctx context.Context, params map[string]any) (
 	task = s.runHandler(ctx, task, message)
 
 	s.mu.Lock()
-	s.tasks[taskID] = task
+	s.putTaskLocked(taskID, task)
 	s.mu.Unlock()
 
 	return s.serializeTask(task), nil
@@ -498,7 +519,7 @@ func (s *Server) streamRPC(ctx context.Context, w http.ResponseWriter, id any, p
 	task.Artifacts = artifacts
 	task.Status = a2a.TaskStatus{State: finalState}
 	s.mu.Lock()
-	s.tasks[taskID] = task
+	s.putTaskLocked(taskID, task)
 	s.mu.Unlock()
 	emit(rpcResult(id, s.serializeTask(task)))
 }

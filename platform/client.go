@@ -110,24 +110,44 @@ func (c *Client) newRequest(ctx context.Context, method, path string, query url.
 }
 
 // do executes a JSON request and decodes the response into out (if non-nil).
+// Network errors and retryable status codes (429, 5xx) are retried up to
+// MaxRetries times with linear backoff (RetryDelay × attempt), honoring ctx.
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body any, headers map[string]string, out any) error {
-	req, err := c.newRequest(ctx, method, path, query, body, headers)
-	if err != nil {
-		return err
+	var lastErr error
+	for attempt := 0; attempt <= c.cfg.MaxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(c.cfg.RetryDelay * time.Duration(attempt)):
+			}
+		}
+
+		req, err := c.newRequest(ctx, method, path, query, body, headers)
+		if err != nil {
+			return err
+		}
+		resp, err := c.http.Do(req)
+		if err != nil {
+			lastErr = aiperr.Connection(err.Error(), c.cfg.BaseURL+path)
+			continue // network errors are retryable
+		}
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			lastErr = aiperr.New(fmt.Sprintf("HTTP %d for %s %s: %s", resp.StatusCode, method, path, string(data)), "", map[string]any{"status": resp.StatusCode})
+			continue // 429 / 5xx are retryable
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return aiperr.New(fmt.Sprintf("HTTP %d for %s %s: %s", resp.StatusCode, method, path, string(data)), "", map[string]any{"status": resp.StatusCode})
+		}
+		if out != nil && len(data) > 0 {
+			return json.Unmarshal(data, out)
+		}
+		return nil
 	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return aiperr.Connection(err.Error(), c.cfg.BaseURL+path)
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return aiperr.New(fmt.Sprintf("HTTP %d for %s %s: %s", resp.StatusCode, method, path, string(data)), "", map[string]any{"status": resp.StatusCode})
-	}
-	if out != nil && len(data) > 0 {
-		return json.Unmarshal(data, out)
-	}
-	return nil
+	return lastErr
 }
 
 // HealthCheck reports whether the AIP platform is healthy.

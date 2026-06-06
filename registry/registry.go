@@ -47,9 +47,9 @@ type Client struct {
 	gateway   *gateway.Client
 	a2aClient *a2a.Client
 
-	mu              sync.Mutex
-	identities      map[string]core.AgentIdentity
-	agents          map[string]any
+	mu               sync.Mutex
+	identities       map[string]core.AgentIdentity
+	agents           map[string]any
 	discoveredAgents map[string]*types.AgentCard
 }
 

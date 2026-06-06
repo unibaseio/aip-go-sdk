@@ -49,13 +49,13 @@ const (
 
 // A2AClient performs gateway-mediated agent communication.
 type A2AClient struct {
-	gatewayURL  string
-	mode        A2AMode
-	timeout     time.Duration
+	gatewayURL   string
+	mode         A2AMode
+	timeout      time.Duration
 	pollInterval time.Duration
-	maxPollTime time.Duration
-	headers     map[string]string
-	http        *http.Client
+	maxPollTime  time.Duration
+	headers      map[string]string
+	http         *http.Client
 
 	mu           sync.Mutex
 	agentCards   map[string]*types.AgentCard

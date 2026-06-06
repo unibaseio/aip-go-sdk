@@ -49,15 +49,15 @@ func (s *StreamResponse) Event() any {
 
 // Standard A2A protocol error codes (JSON-RPC and A2A-specific).
 const (
-	ErrParseError                    = -32700
-	ErrInvalidRequest                = -32600
-	ErrMethodNotFound                = -32601
-	ErrInvalidParams                 = -32602
-	ErrInternalError                 = -32603
-	ErrTaskNotFound                  = -32001
-	ErrTaskNotCancelable             = -32002
-	ErrPushNotificationNotSupported  = -32003
-	ErrUnsupportedOperation          = -32004
-	ErrContentTypeNotSupported       = -32005
-	ErrInvalidAgentResponse          = -32006
+	ErrParseError                   = -32700
+	ErrInvalidRequest               = -32600
+	ErrMethodNotFound               = -32601
+	ErrInvalidParams                = -32602
+	ErrInternalError                = -32603
+	ErrTaskNotFound                 = -32001
+	ErrTaskNotCancelable            = -32002
+	ErrPushNotificationNotSupported = -32003
+	ErrUnsupportedOperation         = -32004
+	ErrContentTypeNotSupported      = -32005
+	ErrInvalidAgentResponse         = -32006
 )

@@ -16,12 +16,22 @@ import (
 	"github.com/unibaseio/aip-go-sdk/types"
 )
 
-// TaskExecutionError indicates a failure executing or fetching a task.
+// TaskExecutionError indicates a failure executing or fetching a task. It wraps
+// the underlying cause (if any) so callers can use errors.Is/errors.As.
 type TaskExecutionError struct {
 	Message string
+	Err     error
 }
 
-func (e *TaskExecutionError) Error() string { return e.Message }
+func (e *TaskExecutionError) Error() string {
+	if e.Err != nil {
+		return e.Message + ": " + e.Err.Error()
+	}
+	return e.Message
+}
+
+// Unwrap exposes the underlying error for errors.Is/As.
+func (e *TaskExecutionError) Unwrap() error { return e.Err }
 
 // Client communicates with A2A-compliant agents. Protocol calls are delegated
 // to the official a2a-go JSON-RPC client; agent-card discovery is done over the
@@ -76,7 +86,7 @@ func (c *Client) protocolClient(ctx context.Context, agentURL string) (*a2aclien
 		a2aclient.WithJSONRPCTransport(c.http),
 	)
 	if err != nil {
-		return nil, &TaskExecutionError{Message: "failed to create A2A client: " + err.Error()}
+		return nil, &TaskExecutionError{Message: "failed to create A2A client", Err: err}
 	}
 	c.mu.Lock()
 	c.clients[endpoint] = cl
@@ -134,7 +144,7 @@ func (c *Client) DiscoverAgent(ctx context.Context, baseURL string, forceRefresh
 	c.applyHeaders(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, &TaskExecutionError{Message: fmt.Sprintf("Failed to discover agent at %s: %v", baseURL, err)}
+		return nil, &TaskExecutionError{Message: fmt.Sprintf("Failed to discover agent at %s", baseURL), Err: err}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -143,7 +153,7 @@ func (c *Client) DiscoverAgent(ctx context.Context, baseURL string, forceRefresh
 	data, _ := io.ReadAll(resp.Body)
 	var card types.AgentCard
 	if err := json.Unmarshal(data, &card); err != nil {
-		return nil, &TaskExecutionError{Message: fmt.Sprintf("Invalid agent card at %s: %v", baseURL, err)}
+		return nil, &TaskExecutionError{Message: fmt.Sprintf("Invalid agent card at %s", baseURL), Err: err}
 	}
 	c.mu.Lock()
 	c.cache[baseURL] = &card
@@ -161,7 +171,7 @@ func (c *Client) SendTask(ctx context.Context, agentURL string, message *Message
 	applyIDs(message, taskID, contextID)
 	result, err := cl.SendMessage(ctx, &a2ago.MessageSendParams{Message: message, Metadata: metadata})
 	if err != nil {
-		return nil, &TaskExecutionError{Message: "Task execution failed: " + err.Error()}
+		return nil, &TaskExecutionError{Message: "Task execution failed", Err: err}
 	}
 	switch v := result.(type) {
 	case *Task:
@@ -186,7 +196,7 @@ func (c *Client) GetTask(ctx context.Context, agentURL, taskID string) (*Task, e
 	}
 	task, err := cl.GetTask(ctx, &a2ago.TaskQueryParams{ID: TaskID(taskID)})
 	if err != nil {
-		return nil, &TaskExecutionError{Message: "Get task failed: " + err.Error()}
+		return nil, &TaskExecutionError{Message: "Get task failed", Err: err}
 	}
 	return task, nil
 }
@@ -199,7 +209,7 @@ func (c *Client) CancelTask(ctx context.Context, agentURL, taskID string) (*Task
 	}
 	task, err := cl.CancelTask(ctx, &a2ago.TaskIDParams{ID: TaskID(taskID)})
 	if err != nil {
-		return nil, &TaskExecutionError{Message: "Cancel task failed: " + err.Error()}
+		return nil, &TaskExecutionError{Message: "Cancel task failed", Err: err}
 	}
 	return task, nil
 }
@@ -223,7 +233,7 @@ func (c *Client) StreamTask(ctx context.Context, agentURL string, message *Messa
 		applyIDs(message, taskID, contextID)
 		for ev, err := range cl.SendStreamingMessage(ctx, &a2ago.MessageSendParams{Message: message}) {
 			if err != nil {
-				out <- ClientStreamResult{Err: &TaskExecutionError{Message: "Stream error: " + err.Error()}}
+				out <- ClientStreamResult{Err: &TaskExecutionError{Message: "Stream error", Err: err}}
 				return
 			}
 			out <- ClientStreamResult{Response: eventToStreamResponse(ev)}

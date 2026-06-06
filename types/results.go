@@ -4,12 +4,12 @@ import "fmt"
 
 // TaskResult is the result of a task execution.
 type TaskResult struct {
-	Output         map[string]any `json:"output"`
-	Summary        string         `json:"summary"`
-	UsedTools      []string       `json:"used_tools,omitempty"`
-	DownstreamCalls []string      `json:"downstream_calls,omitempty"`
-	Success        bool           `json:"success"`
-	Error          string         `json:"error,omitempty"`
+	Output          map[string]any `json:"output"`
+	Summary         string         `json:"summary"`
+	UsedTools       []string       `json:"used_tools,omitempty"`
+	DownstreamCalls []string       `json:"downstream_calls,omitempty"`
+	Success         bool           `json:"success"`
+	Error           string         `json:"error,omitempty"`
 }
 
 // SuccessResult builds a successful TaskResult.
@@ -33,7 +33,39 @@ func ErrorResult(err string) *TaskResult {
 	}
 }
 
-// EventData is data from a streaming event.
+// Event type strings emitted by the AIP platform run stream. The platform uses
+// both dotted and underscored variants for the run/orchestrator lifecycle, so
+// both are recognized here (kept in sync with the Python SDK).
+const (
+	EventRunCompleted                    = "run.completed"
+	EventRunCompletedUnderscore          = "run_completed"
+	EventOrchestratorCompleted           = "orchestrator.completed"
+	EventOrchestratorCompletedUnderscore = "orchestrator_completed"
+	EventRunFailed                       = "run.failed"
+	EventOrchestratorError               = "orchestrator.error"
+	EventError                           = "error"
+	EventAgentInvoked                    = "agent_invoked"
+	EventAgentCompleted                  = "agent_completed"
+	EventPaymentSettled                  = "payment.settled"
+	EventMemoryUploaded                  = "memory_uploaded"
+)
+
+// completedEventTypes and errorEventTypes are the canonical terminal-event sets.
+var (
+	completedEventTypes = map[string]bool{
+		EventRunCompleted:                    true,
+		EventRunCompletedUnderscore:          true,
+		EventOrchestratorCompleted:           true,
+		EventOrchestratorCompletedUnderscore: true,
+	}
+	errorEventTypes = map[string]bool{
+		EventRunFailed:         true,
+		EventOrchestratorError: true,
+		EventError:             true,
+	}
+)
+
+// EventData is data from a streaming run event.
 type EventData struct {
 	EventType string         `json:"event_type"`
 	Payload   map[string]any `json:"payload"`
@@ -42,22 +74,10 @@ type EventData struct {
 }
 
 // IsCompleted reports whether the event indicates completion.
-func (e EventData) IsCompleted() bool {
-	switch e.EventType {
-	case "run.completed", "run_completed", "orchestrator.completed", "orchestrator_completed":
-		return true
-	}
-	return false
-}
+func (e EventData) IsCompleted() bool { return completedEventTypes[e.EventType] }
 
 // IsError reports whether the event indicates an error.
-func (e EventData) IsError() bool {
-	switch e.EventType {
-	case "run.failed", "orchestrator.error", "error":
-		return true
-	}
-	return false
-}
+func (e EventData) IsError() bool { return errorEventTypes[e.EventType] }
 
 // Message returns the event message, if present in the payload.
 func (e EventData) Message() string {

@@ -79,31 +79,31 @@ type AgentJobResource struct {
 
 // AgentCard is a standard Agent Card following the ERC-8004 specification.
 type AgentCard struct {
-	Type            string              `json:"type"`
-	Name            string              `json:"name"`
-	Description     string              `json:"description"`
-	URL             string              `json:"url"`
-	Image           string              `json:"image,omitempty"`
-	IconURL         string              `json:"iconUrl,omitempty"`
-	X402Support     bool                `json:"x402support"`
-	Active          bool                `json:"active"`
-	Version         string              `json:"version"`
-	Services        []AgentService      `json:"services"`
-	Registrations   []AgentRegistration `json:"registrations"`
-	SupportedTrust  []string            `json:"supportedTrust"`
-	Metadata        map[string]any      `json:"metadata,omitempty"`
-	UserInterface   string              `json:"userInterface,omitempty"`
-	FeedbackDataURI string              `json:"FeedbackDataURI,omitempty"`
-	Provider        *AgentProvider      `json:"provider,omitempty"`
-	DocumentationURL string             `json:"documentationUrl,omitempty"`
-	Capabilities    AgentCapabilities   `json:"capabilities"`
-	Authentication  AgentAuthentication `json:"authentication"`
-	DefaultInputModes  []string         `json:"defaultInputModes"`
-	DefaultOutputModes []string         `json:"defaultOutputModes"`
-	Skills          []AgentSkillCard    `json:"skills"`
-	JobOfferings    []AgentJobOffering  `json:"jobOfferings"`
-	JobResources    []AgentJobResource  `json:"jobResources"`
-	TrustModels     []string            `json:"trustModels"`
+	Type               string              `json:"type"`
+	Name               string              `json:"name"`
+	Description        string              `json:"description"`
+	URL                string              `json:"url"`
+	Image              string              `json:"image,omitempty"`
+	IconURL            string              `json:"iconUrl,omitempty"`
+	X402Support        bool                `json:"x402support"`
+	Active             bool                `json:"active"`
+	Version            string              `json:"version"`
+	Services           []AgentService      `json:"services"`
+	Registrations      []AgentRegistration `json:"registrations"`
+	SupportedTrust     []string            `json:"supportedTrust"`
+	Metadata           map[string]any      `json:"metadata,omitempty"`
+	UserInterface      string              `json:"userInterface,omitempty"`
+	FeedbackDataURI    string              `json:"FeedbackDataURI,omitempty"`
+	Provider           *AgentProvider      `json:"provider,omitempty"`
+	DocumentationURL   string              `json:"documentationUrl,omitempty"`
+	Capabilities       AgentCapabilities   `json:"capabilities"`
+	Authentication     AgentAuthentication `json:"authentication"`
+	DefaultInputModes  []string            `json:"defaultInputModes"`
+	DefaultOutputModes []string            `json:"defaultOutputModes"`
+	Skills             []AgentSkillCard    `json:"skills"`
+	JobOfferings       []AgentJobOffering  `json:"jobOfferings"`
+	JobResources       []AgentJobResource  `json:"jobResources"`
+	TrustModels        []string            `json:"trustModels"`
 }
 
 // AgentCardType is the ERC-8004 standard type identifier for agent cards.
