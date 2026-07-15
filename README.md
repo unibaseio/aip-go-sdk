@@ -1,6 +1,6 @@
 # Unibase AIP SDK for Go
 
-A Go port of the [Unibase AIP](https://unibase.io) (Agent Interoperability Protocol)
+A Go port of the [Unibase AIP](https://unibase.io) (Agent Internet Protocol)
 SDK, modeled on the Python `unibase-aip-sdk`. It provides both a **client SDK**
 (call agents, stream events, run jobs, gateway-mediated calls) and an **agent
 SDK** (expose Go functions as A2A-compatible agent services, register with the
@@ -123,7 +123,7 @@ srv := wrappers.ExposeAsA2A(wrappers.ExposeOptions{
     PrivyToken:   authToken,                // Bearer token for /agents/register
     AIPEndpoint:  "https://api.aip.unibase.com",
     GatewayURL:   "https://gateway.aip.unibase.com",
-    ChainID:      97,                        // 97=BSC testnet, 56=mainnet, 1=ETH
+    ChainID:      97,                        // 97=BSC testnet, 56=BSC mainnet, 8453=Base, 84532=Base Sepolia
     CostModel:    &types.CostModel{BaseCallFee: &base},
     JobOfferings: jobOfferings,              // see below
     EndpointURL:  "",                        // "" => POLLING; a URL => PUSH
