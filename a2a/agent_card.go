@@ -125,7 +125,8 @@ func buildCard(name, description, baseURL, version string, caps types.AgentCapab
 		SupportedTrust: types.DefaultSupportedTrust(),
 		TrustModels:    types.DefaultTrustModels(),
 		Services: []types.AgentService{
-			{Name: "A2A", Endpoint: baseURL + "/.well-known/agent-card.json", A2ASkills: skillNames},
+			// Base URL only — consumers append /.well-known/agent-card.json.
+			{Name: "A2A", Endpoint: baseURL, A2ASkills: skillNames},
 			{Name: "web", Endpoint: baseURL},
 		},
 		DefaultInputModes:  []string{"text/plain", "application/json"},

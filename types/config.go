@@ -177,7 +177,10 @@ func (c AgentConfig) ToAgentCard(agentID, registryAddress string) AgentCard {
 	if url == "" {
 		url = fmt.Sprintf("http://localhost:8000/agents/%s/", handle)
 	}
-	a2aEndpoint := strings.TrimRight(url, "/") + "/.well-known/agent-card.json"
+	// The A2A service endpoint is the service BASE URL: consumers (e.g. the
+	// platform's card refresher) append /.well-known/agent-card.json
+	// themselves — including the path here doubled it up.
+	a2aEndpoint := strings.TrimRight(url, "/")
 
 	skillCards := make([]AgentSkillCard, 0, len(c.Skills))
 	skillNames := make([]string, 0, len(c.Skills))
