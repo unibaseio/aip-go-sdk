@@ -22,7 +22,10 @@ type ExposeOptions struct {
 	RawResponse bool
 	Version     string
 
-	// Account / registration integration.
+	// Account / registration integration. Registration triggers when either
+	// PrivyToken (preferred — the platform resolves the user from it) or
+	// UserID (token-less path) is set; falls back to the PRIVY_TOKEN and
+	// AIP_USER_ID env vars respectively.
 	UserID      string
 	PrivyToken  string
 	AIPEndpoint string
@@ -117,8 +120,15 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 	if resolvedUserID == "" {
 		resolvedUserID = os.Getenv("AIP_USER_ID")
 	}
+	privyToken := opts.PrivyToken
+	if privyToken == "" {
+		privyToken = os.Getenv("PRIVY_TOKEN")
+	}
 	autoRegister := !opts.DisableAutoRegister
-	if resolvedUserID != "" && (autoRegister || opts.GatewayURL != "") {
+	// Registration needs an identity: either a Privy token (the platform
+	// resolves the user from it, see platform.Client.RegisterAgent) or an
+	// explicit user ID for the token-less path.
+	if (resolvedUserID != "" || privyToken != "") && (autoRegister || opts.GatewayURL != "") {
 		costModel := types.CostModel{}
 		if opts.CostModel != nil {
 			costModel = *opts.CostModel
@@ -132,10 +142,6 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 		}
 		if opts.ViaGateway {
 			metadata["via_gateway"] = true
-		}
-		privyToken := opts.PrivyToken
-		if privyToken == "" {
-			privyToken = os.Getenv("PRIVY_TOKEN")
 		}
 		regConfig := &server.RegistrationConfig{
 			Handle:       opts.Handle,
