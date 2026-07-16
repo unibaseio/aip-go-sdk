@@ -129,6 +129,10 @@ func (s *Server) AgentID() string {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/agent-card.json", s.handleAgentCard)
+	// The agent card advertises the root as the "web" service endpoint and
+	// platform health checks GET it, so serve the card there too instead of
+	// letting the mux answer 405 (only POST / was registered).
+	mux.HandleFunc("GET /{$}", s.handleAgentCard)
 	mux.HandleFunc("POST /", s.handleJSONRPC)
 	mux.HandleFunc("POST /a2a", s.handleJSONRPC)
 	mux.HandleFunc("POST /a2a/stream", s.handleStream)
