@@ -103,7 +103,10 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 		DefaultInputModes:  []string{"text/plain", "application/json"},
 		DefaultOutputModes: []string{"text/plain", "application/json"},
 		Services: []types.AgentService{
-			{Name: "A2A", Endpoint: discoveryURL + "/.well-known/agent-card.json", A2ASkills: skillNames},
+			// The endpoint is the service BASE URL: consumers (e.g. the AIP
+			// platform's card refresher) append /.well-known/agent-card.json
+			// themselves — including the path here doubled it up.
+			{Name: "A2A", Endpoint: discoveryURL, A2ASkills: skillNames},
 			{Name: "web", Endpoint: discoveryURL},
 		},
 	}
