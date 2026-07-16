@@ -9,7 +9,7 @@
   "services": [
     {
       "name": "A2A",
-      "endpoint": "http://localhost:8000/agents/prediction_market_demo/.well-known/agent-card.json",
+      "endpoint": "http://localhost:8000/agents/prediction_market_demo",
       "a2aSkills": [
         "YES/NO Probability"
       ]
