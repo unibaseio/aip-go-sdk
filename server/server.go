@@ -162,7 +162,12 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.registrationConfig != nil && s.autoRegister {
 			s.registerWithAIP(ctx)
 		}
-		if cfg := s.registrationConfig; cfg != nil && cfg.EndpointURL == "" && cfg.GatewayURL != "" {
+		// Poll when the agent has no public endpoint (private agents pull
+		// their work), and ALSO for ViaGateway agents even when an endpoint
+		// is set: the platform delivers jobs for via_gateway agents through
+		// the gateway job QUEUE (pull), not by pushing to the endpoint — an
+		// endpoint-only agent would leave those jobs pending forever.
+		if cfg := s.registrationConfig; cfg != nil && cfg.GatewayURL != "" && (cfg.EndpointURL == "" || cfg.ViaGateway) {
 			s.gatewayPollingLoop(pollCtx)
 		} else {
 			pollCancel()
