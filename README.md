@@ -19,6 +19,7 @@ Requires Go 1.25+.
 | Package | Purpose |
 | --- | --- |
 | `aiperr` | Error types and codes (`AIPError` and friends). |
+| `auth` | Unibase authorization helpers: load/save the proxy-auth JWT, the interactive first-run browser flow (`EnsureAuth`), and wallet extraction from the token's `sub` claim. |
 | `core` | `AgentType`, `AgentIdentity`. |
 | `a2a` | A2A protocol types (`Task`, `Message`, `Part`, …) aliased from the official [a2a-go](https://github.com/a2aproject/a2a-go) SDK (v0.3.x), the A2A `Client` (wrapping `a2aclient`), and agent-card generation. |
 | `types` | SDK data models: `AgentCard` (ERC-8004), `AgentConfig`, `CostModel`, `RunResult`, `AgentMessage`, etc. |
@@ -96,8 +97,9 @@ It exercises every moving part of the agent SDK in one file.
 ```
 
 1. **Authorize.** The developer signs in once; the SDK loads a Privy/Unibase JWT
-   (from `UNIBASE_PROXY_AUTH`, a cached config file, or an interactive flow). The
-   wallet address is the JWT's `sub` claim and becomes the agent's owner/`user_id`.
+   (from `UNIBASE_PROXY_AUTH`, a cached config file, or an interactive flow — all
+   via the `auth` package, e.g. `auth.EnsureAuth(ctx)`). The wallet address is
+   the JWT's `sub` claim and becomes the agent's owner/`user_id`.
 2. **Register.** `ExposeAsA2A` posts the agent config to `POST /agents/register`
    with the JWT as a Bearer token, which triggers on-chain ERC-8004 registration
    and returns an `agent_id` (e.g. `erc8004:prediction_market_demo`).
@@ -119,8 +121,9 @@ The key knobs:
 srv := wrappers.ExposeAsA2A(wrappers.ExposeOptions{
     Name:         "Prediction Market Agent",
     Handle:       "prediction_market_demo", // unique marketplace handle
-    UserID:       userID,                   // wallet from the JWT `sub` claim
     PrivyToken:   authToken,                // Bearer token for /agents/register
+    // UserID is optional when PrivyToken is set — the platform resolves the
+    // user from the token. Provide it only for the token-less path.
     AIPEndpoint:  "https://api.aip.unibase.com",
     GatewayURL:   "https://gateway.aip.unibase.com",
     ChainID:      97,                        // 97=BSC testnet, 56=BSC mainnet, 8453=Base, 84532=Base Sepolia
@@ -134,9 +137,10 @@ srv.Run(ctx)
 
 | Knob | Effect |
 | --- | --- |
+| `PrivyToken` / `UserID` | Registration triggers when **either** is set (env fallbacks: `PRIVY_TOKEN`, `AIP_USER_ID`). With a token, `user_id` is omitted from the request body — the platform resolves it. |
 | `EndpointURL` set | **PUSH** mode — the gateway calls the agent's public URL directly. |
 | `EndpointURL` empty | **POLLING** mode — the agent polls the gateway for work (good behind NAT/firewall). |
-| `ViaGateway: true` + job offerings | Poll the **job queue** (`/gateway/jobs/poll`) so the Butler can hire the agent. Without it, polling uses the plain **task queue** (`/gateway/tasks/poll`). |
+| `ViaGateway: true` + job offerings | Poll the **job queue** (`/gateway/jobs/poll`) so the Butler can hire the agent. Without it, polling uses the plain **task queue** (`/gateway/tasks/poll`). ViaGateway agents poll **even when `EndpointURL` is set** — the platform delivers marketplace jobs through the queue (pull), not by pushing to the endpoint. |
 | `DisableAutoRegister: true` | Skip registration on start (register out of band, e.g. via `platform.Client.RegisterAgent`). |
 
 Registration failures are non-fatal: the service still starts and logs a warning,
@@ -228,6 +232,7 @@ UNIBASE_PROXY_AUTH="e30.$PAYLOAD.sig" AIP_ENDPOINT=http://127.0.0.1:9 \
 
 ```sh
 curl -s http://127.0.0.1:8201/.well-known/agent-card.json          # card + jobOfferings
+curl -s http://127.0.0.1:8201/                                     # GET / serves the card too
 curl -s -X POST http://127.0.0.1:8201/invoke -H 'Content-Type: application/json' \
   -d '{"message":"Will BTC break below $60000?"}'                   # invoke the handler
 ```
@@ -241,6 +246,11 @@ curl -s -X POST http://127.0.0.1:8201/invoke -H 'Content-Type: application/json'
   (`messageId`, `contextId`, …) to stay compatible with the reference
   implementation and Google's A2A SDK. ERC-8004 agent cards follow the spec's
   camelCase keys.
+- **Base URLs in cards.** Generated agent cards advertise the A2A service
+  **base URL** (e.g. `http://host:8201`), never the card path — consumers such
+  as the platform's card refresher append `/.well-known/agent-card.json`
+  themselves; including it doubled the path and produced 405s. The
+  `contracts/fixtures` capture this as a cross-language wire contract.
 - **Official A2A types.** The `a2a` package aliases the protocol types from the
   official `github.com/a2aproject/a2a-go` SDK and backs the outbound client with
   its `a2aclient`. The **v0.3.x** line is used deliberately: it is JSON/spec
