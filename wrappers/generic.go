@@ -3,10 +3,12 @@
 package wrappers
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/unibaseio/aip-go-sdk/auth"
 	"github.com/unibaseio/aip-go-sdk/server"
 	"github.com/unibaseio/aip-go-sdk/types"
 )
@@ -25,7 +27,9 @@ type ExposeOptions struct {
 	// Account / registration integration. Registration triggers when either
 	// PrivyToken (preferred — the platform resolves the user from it) or
 	// UserID (token-less path) is set; falls back to the PRIVY_TOKEN and
-	// AIP_USER_ID env vars respectively.
+	// AIP_USER_ID env vars respectively. If neither is set, the wallet
+	// address is derived locally from UNIBASE_WALLET_PRIVATE_KEY (env or
+	// cached config) as the token-less UserID.
 	UserID      string
 	PrivyToken  string
 	AIPEndpoint string
@@ -126,6 +130,18 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 	privyToken := opts.PrivyToken
 	if privyToken == "" {
 		privyToken = os.Getenv("PRIVY_TOKEN")
+	}
+	if resolvedUserID == "" && privyToken == "" {
+		// Wallet-key mode: derive the owner address locally from
+		// UNIBASE_WALLET_PRIVATE_KEY (env or cached config) and register via
+		// the token-less path. The key itself never leaves the machine.
+		if key := auth.LoadPrivateKey(); key != "" {
+			if wallet, err := auth.WalletFromPrivateKey(key); err == nil {
+				resolvedUserID = wallet
+			} else {
+				log.Printf("wrappers: ignoring invalid UNIBASE_WALLET_PRIVATE_KEY: %v", err)
+			}
+		}
 	}
 	autoRegister := !opts.DisableAutoRegister
 	// Registration needs an identity: either a Privy token (the platform

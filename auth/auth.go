@@ -1,12 +1,22 @@
 // Package auth provides the Unibase authorization helpers shared by SDK
-// consumers: loading/saving the proxy-auth JWT, the interactive first-run
-// browser flow, and extracting the wallet from the token's `sub` claim.
+// consumers. Two interchangeable credential types — provide ONE of them:
+//
+//   - Proxy-auth JWT (UNIBASE_PROXY_AUTH): obtained from Unibase Pay via the
+//     interactive browser flow. Sent as a Bearer token; the platform resolves
+//     the wallet from it.
+//   - Wallet private key (UNIBASE_WALLET_PRIVATE_KEY): the SDK derives the
+//     wallet address locally and registers via the token-less path (user_id
+//     in the request body). The key never leaves the machine.
+//
+// Resolution order: env var -> cached config file -> interactive flow (which
+// lets the user pick either method).
 package auth
 
 import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +24,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"golang.org/x/crypto/sha3"
+	"golang.org/x/term"
 )
 
 // ConfigFile returns the path to the cached auth config.
@@ -29,40 +43,69 @@ func payURL() string {
 	return "https://api.pay.unibase.com"
 }
 
+func readConfig() map[string]string {
+	cfg := map[string]string{}
+	data, err := os.ReadFile(ConfigFile())
+	if err != nil {
+		return cfg
+	}
+	_ = json.Unmarshal(data, &cfg)
+	return cfg
+}
+
+// writeConfig merges updates into the config file (0600 perms).
+func writeConfig(updates map[string]string) error {
+	path := ConfigFile()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	cfg := readConfig()
+	for k, v := range updates {
+		if v != "" {
+			cfg[k] = v
+		}
+	}
+	b, _ := json.MarshalIndent(cfg, "", "  ")
+	return os.WriteFile(path, b, 0o600)
+}
+
 // LoadToken reads UNIBASE_PROXY_AUTH from the environment, then the config file.
 func LoadToken() string {
 	if env := os.Getenv("UNIBASE_PROXY_AUTH"); env != "" {
 		return env
 	}
-	data, err := os.ReadFile(ConfigFile())
-	if err != nil {
-		return ""
-	}
-	var cfg map[string]string
-	if json.Unmarshal(data, &cfg) != nil {
-		return ""
-	}
-	return cfg["UNIBASE_PROXY_AUTH"]
+	return readConfig()["UNIBASE_PROXY_AUTH"]
 }
 
 // SaveToken persists the token (and optional agent identity) to the config file.
 func SaveToken(token, agentID, agentWallet string) error {
-	path := ConfigFile()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := writeConfig(map[string]string{
+		"UNIBASE_PROXY_AUTH": token,
+		"AGENT_ID":           agentID,
+		"AGENT_WALLET":       agentWallet,
+	}); err != nil {
 		return err
 	}
-	data := map[string]string{"UNIBASE_PROXY_AUTH": token}
-	if agentID != "" {
-		data["AGENT_ID"] = agentID
+	fmt.Printf("  saved auth token to %s\n", ConfigFile())
+	return nil
+}
+
+// LoadPrivateKey reads UNIBASE_WALLET_PRIVATE_KEY from the environment, then
+// the config file.
+func LoadPrivateKey() string {
+	if env := os.Getenv("UNIBASE_WALLET_PRIVATE_KEY"); env != "" {
+		return env
 	}
-	if agentWallet != "" {
-		data["AGENT_WALLET"] = agentWallet
-	}
-	b, _ := json.MarshalIndent(data, "", "  ")
-	if err := os.WriteFile(path, b, 0o600); err != nil {
+	return readConfig()["UNIBASE_WALLET_PRIVATE_KEY"]
+}
+
+// SavePrivateKey persists the wallet private key to the config file (0600
+// perms). The key is stored locally only — it is never sent to the platform.
+func SavePrivateKey(key string) error {
+	if err := writeConfig(map[string]string{"UNIBASE_WALLET_PRIVATE_KEY": key}); err != nil {
 		return err
 	}
-	fmt.Printf("  saved auth token to %s\n", path)
+	fmt.Printf("  saved wallet key to %s (never sent to the platform)\n", ConfigFile())
 	return nil
 }
 
@@ -91,10 +134,64 @@ func ExtractWallet(token string) string {
 	return sub
 }
 
-// InteractiveAuth fetches an authorization URL and reads the signed JWT from stdin.
+// WalletFromPrivateKey derives the EIP-55 checksummed wallet address from a
+// hex private key. Purely local — the key is never transmitted.
+func WalletFromPrivateKey(privateKey string) (string, error) {
+	keyHex := strings.TrimPrefix(strings.TrimSpace(privateKey), "0x")
+	keyBytes, err := hex.DecodeString(keyHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid private key hex: %w", err)
+	}
+	if len(keyBytes) != 32 {
+		return "", fmt.Errorf("invalid private key length: %d bytes (want 32)", len(keyBytes))
+	}
+	priv := secp256k1.PrivKeyFromBytes(keyBytes)
+	pub := priv.PubKey().SerializeUncompressed() // 65 bytes, 0x04 prefix
+
+	h := sha3.NewLegacyKeccak256()
+	h.Write(pub[1:])
+	addr := h.Sum(nil)[12:]
+	return checksumAddress(addr), nil
+}
+
+// checksumAddress formats a 20-byte address with EIP-55 checksum casing.
+func checksumAddress(addr []byte) string {
+	lower := hex.EncodeToString(addr)
+	h := sha3.NewLegacyKeccak256()
+	h.Write([]byte(lower))
+	hash := hex.EncodeToString(h.Sum(nil))
+
+	out := make([]byte, len(lower))
+	for i, c := range []byte(lower) {
+		if c >= 'a' && c <= 'f' && hash[i] >= '8' {
+			c -= 'a' - 'A'
+		}
+		out[i] = c
+	}
+	return "0x" + string(out)
+}
+
+// InteractiveAuth runs the first-run flow, letting the user pick a credential
+// type: browser authorization (JWT) or a wallet private key.
+// Returns ("", wallet) in private-key mode.
 func InteractiveAuth(ctx context.Context) (token, wallet string, err error) {
 	fmt.Println("\n=== Unibase Authorization ===")
-	fmt.Println("[1/3] Fetching authorization URL ...")
+	fmt.Println("Choose an authorization method:")
+	fmt.Println("  1) Browser authorization — open a URL, approve, paste the JWT token")
+	fmt.Println("  2) Wallet private key — paste a hex private key (stored locally only)")
+	fmt.Print("Choice [1]: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	choice := strings.TrimSpace(scanner.Text())
+
+	if choice == "2" {
+		return interactivePrivateKey()
+	}
+	return interactiveToken(ctx)
+}
+
+func interactiveToken(ctx context.Context) (token, wallet string, err error) {
+	fmt.Println("\n[1/3] Fetching authorization URL ...")
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, payURL()+"/v1/init", strings.NewReader("true"))
 	if err != nil {
@@ -132,11 +229,46 @@ func InteractiveAuth(ctx context.Context) (token, wallet string, err error) {
 	return token, wallet, nil
 }
 
-// EnsureAuth returns a usable token + wallet, running interactive auth if no
-// cached token is found.
+func interactivePrivateKey() (token, wallet string, err error) {
+	fmt.Println("\nPaste your wallet private key (hex, input hidden) and press Enter:")
+	fmt.Print("  Private key: ")
+
+	var key string
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		raw, rerr := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Println()
+		if rerr != nil {
+			return "", "", rerr
+		}
+		key = strings.TrimSpace(string(raw))
+	} else {
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		key = strings.TrimSpace(scanner.Text())
+	}
+	if key == "" {
+		return "", "", fmt.Errorf("no private key provided — aborted")
+	}
+
+	wallet, err = WalletFromPrivateKey(key)
+	if err != nil {
+		return "", "", err
+	}
+	fmt.Printf("  wallet: %s\n", wallet)
+	_ = SavePrivateKey(key)
+	return "", wallet, nil
+}
+
+// EnsureAuth returns usable credentials, running the interactive flow if
+// nothing is cached. JWT mode returns (token, wallet); private-key mode
+// returns ("", wallet) with the address derived locally from the key.
 func EnsureAuth(ctx context.Context) (token, wallet string, err error) {
 	if token = LoadToken(); token != "" {
 		return token, ExtractWallet(token), nil
+	}
+	if key := LoadPrivateKey(); key != "" {
+		wallet, err = WalletFromPrivateKey(key)
+		return "", wallet, err
 	}
 	return InteractiveAuth(ctx)
 }
