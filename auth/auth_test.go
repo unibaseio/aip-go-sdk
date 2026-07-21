@@ -34,3 +34,21 @@ func TestWalletFromPrivateKeyInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestSignMessage(t *testing.T) {
+	// Anvil account #0; recovery cross-checked against eth_account.
+	sig, err := SignMessage("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", "Create an AIP agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sig) != 2+65*2 {
+		t.Fatalf("signature length = %d, want %d", len(sig), 2+65*2)
+	}
+	if sig[:2] != "0x" {
+		t.Fatalf("signature missing 0x prefix: %s", sig[:4])
+	}
+	v := sig[len(sig)-2:]
+	if v != "1b" && v != "1c" {
+		t.Fatalf("recovery byte v = %s, want 1b or 1c", v)
+	}
+}

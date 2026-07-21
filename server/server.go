@@ -29,11 +29,15 @@ type TaskHandler func(ctx context.Context, task *a2a.Task, message *a2a.Message)
 // RegistrationConfig holds the platform/gateway registration details that
 // drive auto-registration and gateway polling.
 type RegistrationConfig struct {
-	Handle       string
-	Name         string
-	Description  string
-	UserID       string
-	PrivyToken   string
+	Handle      string
+	Name        string
+	Description string
+	UserID      string
+	PrivyToken  string
+	// Token-less registration auth: an EIP-191 signature over Message; the
+	// platform recovers the wallet address from it (see auth.SignMessage).
+	Signature    string
+	Message      string
 	AIPEndpoint  string
 	EndpointURL  string
 	GatewayURL   string

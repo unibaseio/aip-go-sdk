@@ -19,7 +19,7 @@ Requires Go 1.25+.
 | Package | Purpose |
 | --- | --- |
 | `aiperr` | Error types and codes (`AIPError` and friends). |
-| `auth` | Unibase authorization helpers (`EnsureAuth`): loads a proxy-auth JWT (`UNIBASE_PROXY_AUTH`) **or** a wallet private key (`UNIBASE_WALLET_PRIVATE_KEY`, address derived locally, key never transmitted), with an interactive first-run flow offering both methods. |
+| `auth` | Unibase authorization helpers (`EnsureAuth`): loads a proxy-auth JWT (`UNIBASE_PROXY_AUTH`) **or** a wallet private key (`UNIBASE_WALLET_PRIVATE_KEY` — address derived and registration message signed locally via EIP-191; the key is never transmitted), with an interactive first-run flow offering both methods. |
 | `core` | `AgentType`, `AgentIdentity`. |
 | `a2a` | A2A protocol types (`Task`, `Message`, `Part`, …) aliased from the official [a2a-go](https://github.com/a2aproject/a2a-go) SDK (v0.3.x), the A2A `Client` (wrapping `a2aclient`), and agent-card generation. |
 | `types` | SDK data models: `AgentCard` (ERC-8004), `AgentConfig`, `CostModel`, `RunResult`, `AgentMessage`, etc. |
@@ -99,9 +99,10 @@ It exercises every moving part of the agent SDK in one file.
 1. **Authorize.** The developer provides ONE credential via the `auth` package
    (`auth.EnsureAuth(ctx)`): a Privy/Unibase JWT (`UNIBASE_PROXY_AUTH` — wallet
    comes from the token's `sub` claim) **or** a wallet private key
-   (`UNIBASE_WALLET_PRIVATE_KEY` — the address is derived locally; the key never
-   leaves the machine). Env vars are checked first, then the cached config file,
-   then an interactive flow that offers both methods.
+   (`UNIBASE_WALLET_PRIVATE_KEY` — the address is derived and the registration
+   message signed locally via EIP-191; the platform recovers the wallet from the
+   signature and the key never leaves the machine). Env vars are checked first,
+   then the cached config file, then an interactive flow that offers both methods.
 2. **Register.** `ExposeAsA2A` posts the agent config to `POST /agents/register`
    with the JWT as a Bearer token, which triggers on-chain ERC-8004 registration
    and returns an `agent_id` (e.g. `erc8004:prediction_market_demo`).
@@ -139,7 +140,7 @@ srv.Run(ctx)
 
 | Knob | Effect |
 | --- | --- |
-| `PrivyToken` / `UserID` | Registration triggers when **either** is set (env fallbacks: `PRIVY_TOKEN`, `AIP_USER_ID`). With a token, `user_id` is omitted from the request body — the platform resolves it. If neither is set, the owner address is derived locally from `UNIBASE_WALLET_PRIVATE_KEY` (env or cached config) as the token-less `UserID`. |
+| `PrivyToken` / `UserID` | Registration triggers when **either** is set (env fallbacks: `PRIVY_TOKEN`, `AIP_USER_ID`). With a token, `user_id` is omitted from the request body — the platform resolves it. If no token is set but `UNIBASE_WALLET_PRIVATE_KEY` is available (env or cached config), the owner address is derived and an EIP-191 registration signature is attached — the platform recovers the wallet from it. |
 | `EndpointURL` set | **PUSH** mode — the gateway calls the agent's public URL directly. |
 | `EndpointURL` empty | **POLLING** mode — the agent polls the gateway for work (good behind NAT/firewall). |
 | `ViaGateway: true` + job offerings | Poll the **job queue** (`/gateway/jobs/poll`) so the Butler can hire the agent. Without it, polling uses the plain **task queue** (`/gateway/tasks/poll`). ViaGateway agents poll **even when `EndpointURL` is set** — the platform delivers marketplace jobs through the queue (pull), not by pushing to the endpoint. |

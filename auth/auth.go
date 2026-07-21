@@ -5,8 +5,9 @@
 //     interactive browser flow. Sent as a Bearer token; the platform resolves
 //     the wallet from it.
 //   - Wallet private key (UNIBASE_WALLET_PRIVATE_KEY): the SDK derives the
-//     wallet address locally and registers via the token-less path (user_id
-//     in the request body). The key never leaves the machine.
+//     wallet address and signs the registration message locally (EIP-191);
+//     the platform recovers the wallet from the signature. The key never
+//     leaves the machine.
 //
 // Resolution order: env var -> cached config file -> interactive flow (which
 // lets the user pick either method).
@@ -26,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	secpecdsa "github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/term"
 )
@@ -152,6 +154,31 @@ func WalletFromPrivateKey(privateKey string) (string, error) {
 	h.Write(pub[1:])
 	addr := h.Sum(nil)[12:]
 	return checksumAddress(addr), nil
+}
+
+// SignMessage signs a message with the private key (EIP-191 personal sign,
+// offline). The platform recovers the wallet address from this signature
+// during token-less registration — the key itself is never transmitted.
+// Returns the 65-byte r||s||v signature as 0x-prefixed hex.
+func SignMessage(privateKey, message string) (string, error) {
+	keyHex := strings.TrimPrefix(strings.TrimSpace(privateKey), "0x")
+	keyBytes, err := hex.DecodeString(keyHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid private key hex: %w", err)
+	}
+	if len(keyBytes) != 32 {
+		return "", fmt.Errorf("invalid private key length: %d bytes (want 32)", len(keyBytes))
+	}
+	priv := secp256k1.PrivKeyFromBytes(keyBytes)
+
+	h := sha3.NewLegacyKeccak256()
+	fmt.Fprintf(h, "\x19Ethereum Signed Message:\n%d%s", len(message), message)
+	digest := h.Sum(nil)
+
+	// SignCompact returns [27+recid] || r || s; Ethereum wants r || s || v.
+	compact := secpecdsa.SignCompact(priv, digest, false)
+	eth := append(compact[1:], compact[0])
+	return "0x" + hex.EncodeToString(eth), nil
 }
 
 // checksumAddress formats a 20-byte address with EIP-55 checksum casing.

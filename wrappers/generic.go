@@ -131,15 +131,29 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 	if privyToken == "" {
 		privyToken = os.Getenv("PRIVY_TOKEN")
 	}
-	if resolvedUserID == "" && privyToken == "" {
-		// Wallet-key mode: derive the owner address locally from
-		// UNIBASE_WALLET_PRIVATE_KEY (env or cached config) and register via
-		// the token-less path. The key itself never leaves the machine.
+	var signature, signedMessage string
+	if privyToken == "" {
+		// Wallet-key mode: without a Bearer token the platform authenticates
+		// registration by recovering the wallet from an EIP-191 signature.
+		// Derive the owner address and sign the registration message locally
+		// from UNIBASE_WALLET_PRIVATE_KEY (env or cached config) — the key
+		// itself never leaves the machine.
 		if key := auth.LoadPrivateKey(); key != "" {
-			if wallet, err := auth.WalletFromPrivateKey(key); err == nil {
-				resolvedUserID = wallet
-			} else {
+			wallet, err := auth.WalletFromPrivateKey(key)
+			switch {
+			case err != nil:
 				log.Printf("wrappers: ignoring invalid UNIBASE_WALLET_PRIVATE_KEY: %v", err)
+			case resolvedUserID != "" && !strings.EqualFold(resolvedUserID, wallet):
+				log.Printf("wrappers: UserID %s does not match the wallet derived from UNIBASE_WALLET_PRIVATE_KEY (%s); the platform will reject the registration", resolvedUserID, wallet)
+			default:
+				if resolvedUserID == "" {
+					resolvedUserID = wallet
+				}
+				signedMessage = "Create an AIP agent"
+				if signature, err = auth.SignMessage(key, signedMessage); err != nil {
+					log.Printf("wrappers: failed to sign registration message: %v", err)
+					signature, signedMessage = "", ""
+				}
 			}
 		}
 	}
@@ -168,6 +182,8 @@ func ExposeAsA2A(opts ExposeOptions, handler server.TextHandler, streamHandler s
 			Description:  opts.Description,
 			UserID:       resolvedUserID,
 			PrivyToken:   privyToken,
+			Signature:    signature,
+			Message:      signedMessage,
 			AIPEndpoint:  opts.AIPEndpoint,
 			EndpointURL:  opts.EndpointURL,
 			GatewayURL:   opts.GatewayURL,

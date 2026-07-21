@@ -149,6 +149,11 @@ type AgentConfig struct {
 	JobOfferings []AgentJobOffering `json:"job_offerings,omitempty"`
 	JobResources []AgentJobResource `json:"job_resources,omitempty"`
 	ChainID      int                `json:"chain_id"`
+
+	// Token-less registration auth: an EIP-191 signature over Message. The
+	// platform recovers the wallet address from it (see auth.SignMessage).
+	Signature string `json:"signature,omitempty"`
+	Message   string `json:"message,omitempty"`
 }
 
 // Price returns the primary price (base_call_fee), defaulting to 0.001.
@@ -248,7 +253,7 @@ func (c AgentConfig) ToRegistrationMap() map[string]any {
 		jobResources = []AgentJobResource{}
 	}
 
-	return map[string]any{
+	out := map[string]any{
 		"handle":       handle,
 		"card":         c.ToAgentCard("", ""),
 		"skills":       skills,
@@ -261,6 +266,14 @@ func (c AgentConfig) ToRegistrationMap() map[string]any {
 		"endpoint_url": c.EndpointURL,
 		"chain_id":     c.ChainID,
 	}
+	// Token-less auth: the platform recovers the wallet from the signature.
+	if c.Signature != "" {
+		out["signature"] = c.Signature
+		if c.Message != "" {
+			out["message"] = c.Message
+		}
+	}
+	return out
 }
 
 // AgentGroupConfig configures an agent group with intelligent routing.

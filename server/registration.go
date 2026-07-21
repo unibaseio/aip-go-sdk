@@ -52,6 +52,8 @@ func (s *Server) registerWithAIP(ctx context.Context) {
 		JobOfferings: cfg.JobOfferings,
 		JobResources: cfg.JobResources,
 		ChainID:      chainID,
+		Signature:    cfg.Signature,
+		Message:      cfg.Message,
 	}
 
 	client := platform.New(endpoint)
