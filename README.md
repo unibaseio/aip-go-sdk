@@ -214,8 +214,8 @@ go test ./...    # unit + e2e tests (a2a / server / types / contracts)
 
 ```sh
 # 2a. Real run: set a credential (or let the interactive flow ask for one) and point at your platform
-export UNIBASE_PROXY_AUTH="eyJ..."              # option A: JWT
-# export UNIBASE_WALLET_PRIVATE_KEY="0x..."     # option B: wallet key (local only)
+export UNIBASE_WALLET_PRIVATE_KEY="0x..."       # option A: wallet key (local only)
+# export UNIBASE_PROXY_AUTH="eyJ..."            # option B: JWT (wins if both are set)
 export AIP_ENDPOINT="https://api.aip.unibase.com"
 export GATEWAY_URL="https://gateway.aip.unibase.com"
 go run ./examples/prediction_market_agent
